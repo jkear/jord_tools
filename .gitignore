@@ -1,4 +1,5 @@
-# Logs
+// filepath: /root/BDRLLM/LibreChat/.gitignore
+n8n/.env# Logs
 logs
 *.log
 npm-debug.log*
