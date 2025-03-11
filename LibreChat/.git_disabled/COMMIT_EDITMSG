@@ -1,0 +1,24 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# Your branch is behind 'origin/main' by 3 commits, and can be fast-forwarded.
+#   (use "git pull" to update your local branch)
+#
+# Changes to be committed:
+#	modified:   .dockerignore
+#	deleted:    .env.example
+#	modified:   .gitignore
+#	modified:   client/src/components/Files/FileList/DataTableFilePreview.tsx
+#	modified:   client/src/components/Nav/index.ts
+#	modified:   client/src/components/SidePanel/Parameters/components.tsx
+#	modified:   client/src/components/ui/DataTable.tsx
+#	modified:   client/src/components/ui/Dialog.tsx
+#	modified:   client/src/components/ui/DialogTemplate.tsx
+#	modified:   deploy-compose.yml
+#	deleted:    docker-compose.override.yml.example
+#	modified:   docker-compose.yml
+#	deleted:    librechat.example.yaml
+#	new file:   nginx/conf.d/default.conf
+#

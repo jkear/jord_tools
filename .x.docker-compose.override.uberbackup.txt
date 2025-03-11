@@ -1,0 +1,210 @@
+# Please consult our docs for more info: https://www.librechat.ai/docs/configuration/docker_override
+
+# TO USE THIS FILE, FIRST UNCOMMENT THE LINE ('services:')
+
+# THEN UNCOMMENT ONLY THE SECTION OR SECTIONS CONTAINING THE CHANGES YOU WANT TO APPLY
+# SAVE THIS FILE AS 'docker-compose.override.yaml'
+# AND USE THE 'docker compose build' & 'docker compose up -d' COMMANDS AS YOU WOULD NORMALLY DO
+
+# WARNING: YOU CAN ONLY SPECIFY EVERY SERVICE NAME ONCE (api, mongodb, meilisearch, ...)
+# IF YOU WANT TO OVERRIDE MULTIPLE SETTINGS IN ONE SERVICE YOU WILL HAVE TO EDIT ACCORDINGLY
+
+version: '3.4'
+
+#services:
+  api:
+    image: ghcr.io/danny-avila/librechat-dev:latest
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml
+      - ./data:/app/data
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=mongodb://chat-mongodb:27017/LibreChat
+      - MCP_ENABLED=true
+      - ENDPOINTS_ENABLED=mcp,openai,assistants,google,anthropic,custom
+      # Vector search configuration
+      - SEARCH=true
+      - SEARCH_VECTOR_DB=true
+      - MEILI_HOST=http://chat-meilisearch:7700
+      - MEILI_MASTER_KEY=YOUR_MASTER_KEY  # Replace with your key
+      # RAG configuration
+      - RAG_ENABLED=true
+      - RAG_API_URL=http://rag_api:8001
+      # API keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    ports:
+      - "3080:3080"
+    depends_on:
+      - chat-mongodb
+      - chat-meilisearch
+      - rag_api
+    networks:
+      - librechat
+    restart: always
+
+  chat-mongodb:
+    image: mongo
+    container_name: chat-mongodb
+    command: mongod --auth
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: user
+      MONGO_INITDB_ROOT_PASSWORD: userpasswd
+      MONGO_INITDB_DATABASE: LibreChat
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - librechat
+    restart: always
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_SERVER: chat-mongodb
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://user:userpasswd@chat-mongodb:27017/
+    ports:
+      - '8081:8081'
+    depends_on:
+      - chat-mongodb
+    networks:
+      - librechat
+    restart: always
+
+  chat-meilisearch:
+    image: getmeili/meilisearch:v1.12.3
+    container_name: chat-meilisearch
+    environment:
+      - MEILI_MASTER_KEY=YOUR_MASTER_KEY  # Replace with your key
+    networks:
+      - librechat
+    restart: always
+
+  rag_api:
+    image: ghcr.io/danny-avila/librechat-rag-api-dev-lite:latest
+    container_name: rag_api
+    environment:
+      - PGVECTOR_HOST=vectordb
+      - PGVECTOR_PORT=5432
+      # Add any other RAG API environment variables
+    depends_on:
+      - vectordb
+    networks:
+      - librechat
+    restart: always
+
+  vectordb:
+    image: ankane/pgvector:latest
+    container_name: vectordb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vectordb
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    networks:
+      - librechat
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - api
+    networks:
+      - librechat
+    restart: always
+
+networks:
+  librechat:
+    external: true
+
+volumes:
+  mongodb_data:
+  pgvector_data:
+
+(older)
+version: '3.4'
+
+services:
+  n8n:
+    container_name: n8n
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=vectordb
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=mydatabase
+      - DB_POSTGRESDB_USER=myuser
+      - DB_POSTGRESDB_PASSWORD=mypassword
+      - N8N_HOST=logic.bdrllm.com
+      - N8N_PROTOCOL=https
+      - N8N_PORT=5678
+      - NODE_ENV=production
+      - N8N_ENCRYPTION_KEY=your-secret-key-here
+      - WEBHOOK_URL=https://logic.bdrllm.com/
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - api
+    restart: always
+
+  api:
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml
+      - ./data:/app/data  # For file persistence
+    environment:
+      - MCP_ENABLED=true
+      - ENDPOINTS_ENABLED=mcp,openai,assistants,google,anthropic,custom
+      # Add any other API keys you're using
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+   
+    command: >
+      sh -c "
+        npm install -g @modelcontextprotocol/server-puppeteer @modelcontextprotocol/server-filesystem @mzxrai/mcp-webresearch @smithery-ai/memory @smithery-ai/brave-search @smithery-ai/server-sequential-thinking &&
+        node server/index.js
+      "
+
+  mongodb:
+    command: mongod --auth
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/
+    ports:
+      - '8081:8081'
+    depends_on:
+      - mongodb
+    restart: always
+
+volumes:
+  n8n_data:
